@@ -1,4 +1,4 @@
-name: Build APK
+name: Build Android outputs (debug + release)
 
 on:
   push:
@@ -7,28 +7,59 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    - name: Grant execute permission to gradlew
-      run: chmod +x gradlew
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-    - name: Build debug APK
-      run: ./gradlew assembleDebug
+      - name: Show repo top-level (debug)
+        run: |
+          echo "=== top-level files ==="
+          ls -la
+          echo ""
+          echo "=== root gradle files ==="
+          ls -la *.gradle* || true
+          echo ""
+          echo "=== show modules (folders with build.gradle or settings) ==="
+          find . -maxdepth 3 -type f -name "build.gradle*" -print -exec dirname {} \; || true
+          echo ""
+          echo "=== Grep for android plugin types ==="
+          grep -R --line-number "com.android.application" || true
+          grep -R --line-number "com.android.library" || true
+          echo ""
 
-    - name: List APK files (debug info)
-      run: find . -type f -name "*.apk"
+      - name: Sync Gradle (create caches)
+        run: ./gradlew --no-daemon help
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug-apk
-        path: '**/outputs/apk/debug/*.apk'
+      - name: Build debug APK(s)
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Also try building release bundle (optional)
+        run: |
+          echo "Attempting release assemble + bundle in case your project produces AAB"
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace || true
+
+      - name: List build outputs (debug)
+        run: |
+          echo "Find any APK / AAB / AAR produced (full list):"
+          find . -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.aar" \) -print -exec ls -l {} \; || true
+          echo ""
+          echo "List all outputs directories:"
+          find . -type d -path "*/build/outputs/*" -print -exec ls -la {} \; || true
+
+      - name: Upload any APK/AAB/AAR artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: |
+            **/outputs/**/*.apk
+            **/outputs/**/*.aab
+            **/outputs/**/*.aar
