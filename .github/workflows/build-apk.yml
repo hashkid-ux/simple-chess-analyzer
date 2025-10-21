@@ -1,6 +1,3 @@
-# .github/workflows/build-apk.yml
-# This workflow actually BUILDS and UPLOADS the APK
-
 name: Build Chess Analyzer APK
 
 on:
