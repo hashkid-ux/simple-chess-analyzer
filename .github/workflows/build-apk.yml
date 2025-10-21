@@ -14,5 +14,16 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-    - name: Build
-      run: echo "Add build steps here"
+        cache: 'gradle' # Add caching for faster builds
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
+    
+    - name: Build debug APK
+      run: ./gradlew assembleDebug
+    
+    - name: Upload debug APK artifact
+      uses: actions/upload-artifact@v4 # Using the latest v4 version
+      with:
+        name: debug-apk # Name the artifact for easy identification
+        path: app/build/outputs/apk/debug/ # Path where the APK is located
