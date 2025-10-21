@@ -1,4 +1,4 @@
-name: Build Android outputs (debug + release)
+name: Build Android APK (robust)
 
 on:
   push:
@@ -7,8 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -17,49 +19,73 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Show repo top-level (debug)
+      - name: Make gradlew executable if present
         run: |
-          echo "=== top-level files ==="
+          if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
+
+      - name: Ensure Gradle wrapper exists (generate if missing/corrupt)
+        shell: bash
+        run: |
+          # If gradlew missing or obviously broken (tiny file), install system gradle and generate wrapper
+          if [ ! -f ./gradlew ] || [ "$(stat -c%s ./gradlew)" -lt 100 ]; then
+            echo "Gradle wrapper missing or invalid. Installing system gradle and generating wrapper..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gradle unzip
+            echo "system gradle version:"
+            gradle -v
+            # generate wrapper with a modern Gradle version compatible with AGP 8.x
+            gradle wrapper --gradle-version 8.5 --distribution-type all
+          else
+            echo "Gradle wrapper looks OK."
+          fi
+          chmod +x ./gradlew
+
+      - name: Show quick repo & wrapper info (debug)
+        run: |
+          echo "=== repo top-level ==="
           ls -la
           echo ""
-          echo "=== root gradle files ==="
-          ls -la *.gradle* || true
+          echo "gradlew size:"
+          stat -c "%n %s bytes" ./gradlew || true
           echo ""
-          echo "=== show modules (folders with build.gradle or settings) ==="
-          find . -maxdepth 3 -type f -name "build.gradle*" -print -exec dirname {} \; || true
-          echo ""
-          echo "=== Grep for android plugin types ==="
-          grep -R --line-number "com.android.application" || true
-          grep -R --line-number "com.android.library" || true
-          echo ""
+          echo "gradle wrapper files:"
+          ls -la gradle/wrapper || true
 
-      - name: Sync Gradle (create caches)
-        run: ./gradlew --no-daemon help
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*','**/gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Build debug APK(s)
+      - name: Show Gradle version (wrapper)
+        run: ./gradlew --version
+
+      - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Also try building release bundle (optional)
+      - name: Also attempt release/bundle (non-fatal)
         run: |
-          echo "Attempting release assemble + bundle in case your project produces AAB"
-          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace || true
+          ./gradlew assembleRelease --no-daemon --stacktrace || true
+          ./gradlew bundleRelease --no-daemon --stacktrace || true
 
-      - name: List build outputs (debug)
+      - name: Find produced artifacts (debug)
         run: |
-          echo "Find any APK / AAB / AAR produced (full list):"
+          echo "=== List .apk/.aab/.aar files found ==="
           find . -type f \( -iname "*.apk" -o -iname "*.aab" -o -iname "*.aar" \) -print -exec ls -l {} \; || true
           echo ""
-          echo "List all outputs directories:"
+          echo "=== List build/outputs directories ==="
           find . -type d -path "*/build/outputs/*" -print -exec ls -la {} \; || true
 
-      - name: Upload any APK/AAB/AAR artifacts
+      - name: Upload any APK / AAB / AAR artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts
           path: |
+            **/build/outputs/**/*.apk
+            **/build/outputs/**/*.aab
+            **/build/outputs/**/*.aar
             **/outputs/**/*.apk
             **/outputs/**/*.aab
             **/outputs/**/*.aar
