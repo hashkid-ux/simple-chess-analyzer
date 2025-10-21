@@ -16,10 +16,20 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: 'gradle' # Cache Gradle dependencies
     
     - name: Grant execute permission to gradlew
       run: chmod +x gradlew
+    
+    # This step is added to trigger Gradle, which creates the .gradle directory
+    - name: Sync Gradle and check dependencies
+      run: ./gradlew dependencies
+    
+    # Now the caching step will find the .gradle directory and work correctly
+    - name: Cache Gradle dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.gradle/caches
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
     
     - name: Build debug APK
       run: ./gradlew assembleDebug
