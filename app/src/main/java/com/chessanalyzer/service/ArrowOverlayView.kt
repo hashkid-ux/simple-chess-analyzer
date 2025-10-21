@@ -21,7 +21,7 @@ class ArrowOverlayView(context: Context) : View(context) {
         isAntiAlias = true
     }
     
-    private var currentArrow: ArrowData? = null
+    var currentArrow: ArrowData? = null
     
     data class ArrowData(
         val fromX: Float,
