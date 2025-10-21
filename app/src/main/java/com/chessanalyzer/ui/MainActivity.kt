@@ -121,16 +121,11 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startAnalyzer() {
-        // Start detection service
-        val detectionIntent = Intent(this, BoardDetectionService::class.java).apply {
-            putExtra("resultCode", mediaProjectionResultCode)
-            putExtra("data", mediaProjectionData)
-        }
-        startService(detectionIntent)
-        
-        // Start overlay service
+        // Start overlay service with media projection data
         val overlayIntent = Intent(this, OverlayService::class.java).apply {
             action = OverlayService.ACTION_START
+            putExtra(OverlayService.EXTRA_RESULT_CODE, mediaProjectionResultCode)
+            putExtra(OverlayService.EXTRA_DATA, mediaProjectionData)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(overlayIntent)
