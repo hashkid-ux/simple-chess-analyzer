@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Chess Analyzer</string>
+    
+    <string-array name="analysis_speeds">
+        <item>Bullet</item>
+        <item>Blitz</item>
+        <item>Rapid</item>
+        <item>Classical</item>
+    </string-array>
 </resources>
